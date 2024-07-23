@@ -1,0 +1,233 @@
+enable ssh 
+system --> advanced ---->admin access ---->select HTTP, select Display page anme first in browser tab, under secure shell (select enable Secure Shell, SSH Port=2222)---->save
+
+change firewall setting 
+system --> advanced ---->Firewall/NAT ---->firewall Optimiztaion options=conservative---->save
+
+disable IPV6
+system --> advanced ---->Networking---->under IPV6 Option uncheck All IPV6---->save
+
+ update the firewall 
+system --> advanced ---->Update---->checking for update 
+
+add interfaces
+interface ----> assignmenet---->opt3---->
+under genaral configuration ----> Check enable interface, Description LAN, IPV4 configuration Type=static IPV4
+under Static IPV4 Configuartion=44.1.2.32 24---->SAVE---->APPLY
+
+Firewall Rules
+configureRules
+firewall ----> Rules ---->click LAN ---->
+under Firewall rules ----> (Action=Pass, Interfaces=LAN,Protcols=ANY, 
+under Source ---->any
+under Destinations ---->destaination= the firewall
+destination port range =10443 10443 
+ Description=Allow all ---->save---->apply changes
+
+firewall ----> Rules ---->click LAN ---->
+under Firewall rules ----> (Action=Block, Interfaces=LAN,Protcols=ANY, Description=Block Web Interface ---->save---->apply changes
+** open the browser and type the IPs address for LAN interface** will be blocked
+
+create Alias for specific network range 
+firewall---->alias---->Name=Myprivte_IP, Type =Network 
+IP or FQDN=172.16.1.0  /24  DMZ  ----> Add
+IP or FQDN=44.1.2.0  /24  LAN ----> Add
+IP or FQDN=44.1.12.0  /24  VLAN12 ----> Add
+IP or FQDN=44.1.22.0  /24  VLAN22 ----> Add
+
+---->save---->apply changes
+
+firewall ----> Rules ---->click LAN ---->
+under Firewall rules ----> (Action=Block, Interfaces=LAN,Protcols=ANY, 
+under Source ---->any
+under Destinations ----> destiantion = single host or alias DMZ
+ Description=Block DMZ ---->save---->apply changes
+
+enable Dhcp on interfaces
+services---->DHCP Server---->Click on (LAN)---->
+under general options ----> chick enable DHCP Server on it ----> Range = 44.1.2.10 44.1.2.40 ---->save---->apply changes
+
+configure VLAN
+interface ----> VLAN---->Add----> 
+Parent Interface=LAN
+VLAN Tag=12
+Description connect to VLAN 12 
+---->save---->apply 
+
+add VLAN interfaces
+interface ----> assignmenet---->click on Available Network port---->select VALN12 --->add--->click on it 
+under genaral configuration ----> Check enable interface, Description VLAN12, IPV4 configuration Type=static IPV4
+under Static IPV4 Configuartion=44.1.12.1 24---->SAVE---->APPLY
+
+firewall ----> Rules ---->click VLAN12 ---->
+under Firewall rules ----> (Action=Pass, Interfaces=LAN,Protcols=ANY, 
+under Source ---->any
+under Destinations ----> destiantion = any any 
+ Description=Allow all  ---->save---->apply changes
+
+enable Dhcp on interfaces
+services---->DHCP Server---->Click on (VLAN12)---->
+under general options ----> chck enable DHCP Server on it ----> Range = 44.1.12.100 44.1.12.120 ---->save---->apply changes
+
+Configure Vlan Trunk on CISCO Switch
+
+
+
+
+
+To allow clients from outside the internet to connect to web servers inside the DMZ network using pfSense, you'll need to configure port forwarding and firewall rules. Here are the steps to achieve this:
+
+
+
+Go to Firewall > NAT, and then click on the "Port Forward" tab.
+
+Click on the "+ Add" button to create a new port forward rule.
+
+Fill out the port forward configuration as follows:
+
+Interface: WAN
+Protocol: any or TCP (or UDP, depending on your web server's requirements)
+Source: Any (or specify the source IP or range if needed)
+Destination: WAN address (24.1.2.32)
+Destination Port Range: HTTP (80) and HTTPS (443), or the specific port you want to forward
+Redirect Target IP: 172.16.1.190 (the IP address of your web server in the DMZ)### if select protocols = any will be inactived
+Redirect Target Port: The internal port of your web server (e.g., 80 for HTTP)### if select protocols = any will be inactived
+Description: allow client from outside connect with web server on DMZ network
+Click "Save" to create the port forward rule.
+
+Next, you need to create a firewall rule to allow traffic from the WAN to the DMZ.
+
+Go to Firewall > Rules and select the "WAN" tab.
+Click on the "+ Add" button to create a new rule for incoming traffic.
+
+Configure the firewall rule as follows:
+Action: Pass
+Interface: WAN
+Address Family: IPv4 (or IPv6, depending on your setup)
+Protocol: TCP (or UDP, depending on your web server's requirements)
+Source: Any (or specify the source IP or range if needed)
+Destination: Single host or alias (172.16.1.190, your DMZ web server)
+Destination Port Range: HTTP (80) and HTTPS (443), or the specific port you want to allow
+Description: Give the rule a descriptive name
+Click "Save" to create the firewall rule.
+
+Make sure the port forward rule is placed above the firewall rule in the rule list. You can drag and drop rules to reorder them.
+
+Test the configuration by accessing your web server from the client address 24.1.2.100 using the WAN IP address http://24.1.2.32.
+###################################
+****configuration of SWITCH***
+en 
+conf t 
+vlan 12
+name Work
+exit
+
+vlan 22
+name Home
+exit
+
+vlan 99
+name Trunk
+exit
+
+interface GigabitEthernet0/0
+ switchport mode access
+ switchport access vlan 99
+ no shutdown
+ exit
+
+interface range GigabitEthernet0/1-3
+ switchport mode access
+ switchport access vlan 12
+ no shutdown
+ exit
+
+
+
+interface range GigabitEthernet1/0-3
+ switchport mode access
+ switchport access vlan 22
+ no shutdown
+ exit
+
+interface Vlan 99
+ip address dhcp
+no shutdown
+do wr
+exit
+
+interface  GigabitEthernet0/0
+switchport trunk encapsulation dot1q
+switchport mode trunk
+switchport trunk native vlan 99
+switchport trunk allowed vlan 12,22
+exit
+show vlan brief 
+show interfaces trunk 
+wr
+
+4:testing and verifying the connection on client via 10.123 network
+ping 10.123.0.71
+ping 8.8.8.8
+execute ping 8.8.8.8 
+
+###############################
+
+configure OSPF Routnig protocols
+
+1. download the package 
+system ---> Package Manager ---> available Packages ---> search on frr ---> install it
+2: Configuration of OSPF 
+services ---> FRR OSPF --->Areas--->( Area=0.0.0.0 , Description=OSPF PFsense backbone,--->save
+services ---> FRR OSPF --->Interfaces--->Add --->(interface=LAN,Desciption= to insideLAN
+under OSPF Interface Handing --->(Area=0.0.0.0)--->save
+services ---> FRR OSPF --->Global Settings--->(Enable=check Enable FRR , Default Router ID=24.1.2.1, Password=*Libya4ever*--->save
+ervices ---> FRR OSPF --->OSPF-->(Enable=check Enable OSPF Routing, Router ID=24.1.2.1
+under Route Redistrbution-->(check Connected Network )
+under Default Route Redistrbution-->(check Redistrbute a Default route to neighbors, check always Redistrbute a default route, even if routing table contaains no default )--->save
+############################
+
+###################
+VPN IPsec PFsesne
+###################
+
+configure VPN IPsec
+VPN ----> IPsec ---->advanced Setting ---->Check Enable Maximum MMS ---->Save
+Firewall ----> Rules----> aliases---->IP ---->ADD---->(Name=IPSecVPNConnects,Type=Hosts,IP or FQDN=23.1.2.31 ---->Add 172.25.71.33---->Save---->Apply changes
+Firewall ----> Rules---->WAN ---->Add---->
+(Action=Pass, interface=WAN,Address Family =IPV4, Protocol=UDP,
+under Source ( source=single hostor alias ,IPSecVPNCONNECTIONS 
+under Destiation=( WAN ADDRESS
+Destination port Range =ISAKMP(500)----> Save ----> A pply changes
+VPN ----> IPsec ----> Tunnels ----> add P1 ---->( Descrption = VPN connect with 10.2.0.0/24 FG-FW, Key Exchange version=IKEv2, Internet Protocol= IPV4, interface=WAN, Remote Gateway=23.1.2.31 
+Under Phase 1
+Authentication Method= Mutual PSK, My identifire=My IP Address
+peer Identifier=Peer IP address,
+Pre-shared key=*Libya4ever*
+under Phase 1 proposal 
+Encryption Alogorithm AES 265bit
+Hash Algorithms=SHA1
+DH Group=5 OR 14
+---->SAVE ---->Apply changes ----> click on Show Phase 2 ENTIRE ---->Add P2---->
+remote Network= 10.2.0.0/24
+under Phase 2 Proposal 
+protocol=ESP, Enccryption alogorthims=AES Auto
+Hash Algorithms=SHA1
+PFS KeyGroup=5(1024) OR 14(1024) ---->Save ---->Apply Changes
+Status---->IPSec---->overview ---->connect VPN (should be established )
+ping the local lan on first site ping 10.2.0.*
+Firewall ----> Rules----> aliases---->IPSec ---->ADD---->
+(Action=Pass, interface=IPSec,Address Family =IPV4, Protocol=Any,---->Save ---->Apply Changes
+
+*** repate the same steps if you have the same type of firewall***
+
+
+
+
+
+
+
+
+
+
+
