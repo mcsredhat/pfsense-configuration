@@ -310,7 +310,7 @@ Services --> FRR OSPF --> Interfaces --> Add -->
 Services --> FRR OSPF --> Global Settings -->
 - Check "Enable FRR"
 - Default Router ID = 24.1.2.1
-- Password = *Libya4ever*
+- Password = *root*
 - Save
 
 Services --> FRR OSPF --> OSPF -->
